@@ -10,6 +10,15 @@
 
 ---
 
+<table>
+  <tr>
+    <td><img src="screenshots/karsilama.jpg" alt="Karşılama ekranı"><br><sub><b>Karşılama</b> — tıkla ya da bir tuşa bas</sub></td>
+    <td><img src="screenshots/giris.jpg" alt="Giriş ekranı"><br><sub><b>Giriş</b> — şifre yazarken şekilli patiler</sub></td>
+  </tr>
+</table>
+
+<sub>Görüntülerdeki duvar kağıdı ve profil resmi bu README için özel hazırlandı.</sub>
+
 Önce bir karşılama ekranı çıkar. Tıklayınca ya da bir tuşa basınca kilit ekranı tarzındaki giriş gelir; basılan tuş şifre kutusuna yazılmaz. Şifre yazarken her karakter zıplayan şekilli bir pati olur. Giriş ekranında `Esc`'ye basınca veya bir süre hiçbir şey yapılmayınca karşılama ekranına geri döner.
 
 [Felinora-shell](https://github.com/realFelinora/felinora-shell) ile aynı 7 renk temasını kullanır, ama tek başına da çalışır.
