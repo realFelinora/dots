@@ -10,34 +10,36 @@
 
 ---
 
-![Felinora-shell masaüstü](screenshots/01-masaustu.png)
+![Felinora-shell masaüstü](screenshots/01-masaustu.jpg)
 
 <table>
   <tr>
-    <td><img src="screenshots/02-dashboard.png" alt="Dashboard"><br><sub><b>Dashboard</b> — hava, profil, saat, takvim, medya</sub></td>
-    <td><img src="screenshots/03-media.png" alt="Media"><br><sub><b>Media</b> — senkron şarkı sözleri</sub></td>
+    <td><img src="screenshots/02-dashboard.jpg" alt="Dashboard"><br><sub><b>Dashboard</b> — hava, profil, saat, takvim, medya</sub></td>
+    <td><img src="screenshots/03-media.jpg" alt="Media"><br><sub><b>Media</b> — senkron şarkı sözleri</sub></td>
   </tr>
   <tr>
-    <td><img src="screenshots/04-weather.png" alt="Weather"><br><sub><b>Weather</b> — saatlik ve 7 günlük tahmin</sub></td>
-    <td><img src="screenshots/05-temalar.png" alt="Temalar"><br><sub><b>Temalar</b> — 7 koyu tema, tek tık</sub></td>
+    <td><img src="screenshots/12-sarki-temasi.jpg" alt="Şarkı teması"><br><sub><b>Şarkı teması</b> — renkler çalan şarkının albüm kapağından gelir</sub></td>
+    <td><img src="screenshots/05-temalar.jpg" alt="Temalar"><br><sub><b>Temalar</b> — 7 koyu tema + şarkı teması, tek tık</sub></td>
   </tr>
   <tr>
-    <td><img src="screenshots/06-baslatici.png" alt="Program başlatıcı"><br><sub><b>Program başlatıcı</b> — arama, hesap makinesi, komut, web</sub></td>
-    <td><img src="screenshots/07-cikis-menusu.png" alt="Çıkış menüsü"><br><sub><b>Çıkış menüsü</b></sub></td>
+    <td><img src="screenshots/10-dosya-yoneticisi.jpg" alt="Dosya yöneticisi"><br><sub><b>Dosya yöneticisi</b> — önizleme, sürükle-bırak, şifreli kasalar</sub></td>
+    <td><img src="screenshots/11-birlikte-ac.jpg" alt="Birlikte aç"><br><sub><b>Birlikte aç</b> — uygulama seç ya da komut yaz</sub></td>
   </tr>
   <tr>
-    <td colspan="2"><img src="screenshots/09-kilit-ekrani.png" alt="Kilit ekranı"><br><sub><b>Kilit ekranı</b> — şifre yazarken patiler</sub></td>
+    <td><img src="screenshots/06-baslatici.jpg" alt="Program başlatıcı"><br><sub><b>Program başlatıcı</b> — arama, hesap makinesi, komut, web</sub></td>
+    <td><img src="screenshots/04-weather.jpg" alt="Weather"><br><sub><b>Weather</b> — saatlik ve 7 günlük tahmin</sub></td>
+  </tr>
+  <tr>
+    <td><img src="screenshots/09-kilit-ekrani.jpg" alt="Kilit ekranı"><br><sub><b>Kilit ekranı</b> — şifre yazarken patiler</sub></td>
+    <td><img src="screenshots/07-cikis-menusu.jpg" alt="Çıkış menüsü"><br><sub><b>Çıkış menüsü</b></sub></td>
   </tr>
 </table>
 
-<details>
-<summary><b>🎨 Diğer temalar</b></summary>
+### 🎨 Temalar — terminal, cava ve kod editörü de birlikte değişir
 
-| Gece Moru | Kan Kırmızısı | Buz Mavisi |
-|---|---|---|
-| ![Gece Moru](screenshots/08-tema-gece.png) | ![Kan Kırmızısı](screenshots/08-tema-kan.png) | ![Buz Mavisi](screenshots/08-tema-buz.png) |
+![8 tema](screenshots/08-temalar-kolaj.jpg)
 
-</details>
+<sub>Görüntülerdeki duvar kağıdı, profil resmi, albüm kapağı ve demo şarkı bu README için özel hazırlandı.</sub>
 
 ## ✨ Özellikler
 
