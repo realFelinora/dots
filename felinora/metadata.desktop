@@ -1,0 +1,12 @@
+[SddmGreeterTheme]
+Name=Felinora
+Description=Felinora-shell ile uyumlu giriş ekranı: karşılama ekranı + kilit ekranı tarzı giriş
+Author=realFelinora
+License=GPL-3.0-or-later
+Type=sddm-theme
+Version=1.0
+Website=https://github.com/realFelinora/felinora-sddm
+MainScript=Main.qml
+ConfigFile=theme.conf
+QtVersion=6
+X-SDDM-Theme-InterfaceVersion=2
