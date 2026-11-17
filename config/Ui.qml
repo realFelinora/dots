@@ -13,9 +13,18 @@ Singleton {
     property bool launcherOpen: false
     property bool pickerOpen: false
     property string pickerPurpose: "profile"
-    property bool filesOpen: false       // dosya yöneticisi (files/FileManager.qml)
-    property string filesStart: ""
-    function openFiles(path) { filesStart = path || ""; filesOpen = true }
+    // dosya yöneticisi (files/FileManager.qml): Dolphin gibi istediğin kadar ayrı pencere, her biri bir kimlik numarası
+    property var filesWins: []
+    property var filesStartMap: ({})
+    property int filesNextId: 1
+    readonly property bool filesOpen: filesWins.length > 0
+    function openFiles(path) {
+        const id = filesNextId++
+        const m = Object.assign({}, filesStartMap); m[id] = path || ""; filesStartMap = m
+        filesWins = filesWins.concat([id])
+    }
+    function closeFiles(id) { filesWins = filesWins.filter(x => x !== id) }
+    function closeAllFiles() { filesWins = [] }
 
     readonly property var tabs: ["dashboard", "media", "performance", "weather", "theme"]
 

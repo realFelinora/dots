@@ -52,7 +52,7 @@
   - *Weather:* anlık + saatlik + 7 günlük tahmin
   - *Tema:* 7 hazır koyu tema + çalan şarkının albüm kapağından renk alan **Şarkı** teması, tek tıkla geçiş, otomatik kilit süresi
 - **Program başlatıcı** — bulanık arama, en sık kullanılanlar önde, detay kartı ve modlar: `=` hesap makinesi · `>` komut · `?` web araması · `:` tema
-- **Dosya yöneticisi** — temalı, ızgara/liste görünümü, önizleme paneli, sürükle-bırak, "Birlikte aç" (komut yazarak açma dahil), dosya gizleme, şifreli kasalar (gocryptfs vb.) için ayrı bölüm (aşağıya bak)
+- **Dosya yöneticisi** — temalı, Dolphin gibi ayrı pencereler, ızgara/liste görünümü, önizleme paneli, başka uygulamalara da sürükle-bırak, tüm bilgisayarda anında arama, "Birlikte aç" (komut yazarak açma dahil), dosya gizleme, şifreli kasalar (gocryptfs vb.) için ayrı bölüm (aşağıya bak)
 - **Kilit ekranı** — PAM ile şifre, bulanık duvar kağıdı, şifre yazarken animasyonlar, hareketsizlikte otomatik kilit
 - **Çıkış menüsü** — kilitle · uyku · kapat · yeniden başlat · çıkış
 - **Hyprland'in hem klasik `hyprland.conf` hem de yeni Lua config'iyle çalışır** (otomatik algılanır).
@@ -75,6 +75,7 @@
 | `pciutils` (`lspci`) | GPU adı |
 | `papirus-icon-theme` | uygulama ve dosya ikonları |
 | `glib2` (`gio`), `xdg-utils` | dosya yöneticisi: çöp kutusu, "Birlikte aç" |
+| `plocate` | dosya yöneticisi: "her yerde ara" |
 | `cava` | ses görselleştirici tema eşlemesi |
 | `qt6ct` | Qt/KDE uygulamaları (Dolphin vb.) tema eşlemesi |
 | `kitty` | varsayılan terminal (ayardan değiştirilebilir) |
@@ -174,12 +175,31 @@ fi
 ## 📁 Dosya yöneticisi
 
 ```sh
-qs -c felinora-shell ipc call felinora files ""          # aç/kapat
-qs -c felinora-shell ipc call felinora files ~/Downloads # belirli klasörde aç
+qs -c felinora-shell ipc call felinora files ""          # yeni pencere (ev klasörü)
+qs -c felinora-shell ipc call felinora files ~/Downloads # belirli klasörde yeni pencere
+qs -c felinora-shell ipc call felinora filesCloseAll     # hepsini kapat
 ```
 
-- Izgara ve liste görünümü, önizleme paneli, arama (herhangi bir yerde yazmaya başla), sıralama, geri/ileri.
-- **Sürükle-bırak:** sol tuşla klasöre sürükle → taşı (Ctrl basılıysa kopyala); sağ tuşla sürükle → bırakınca "taşı / kopyala" menüsü. Sol paneldeki yerlere ve çöpe de bırakılabilir.
+- **Ayrı pencereler:** her çağrı yeni bir pencere açar (Dolphin gibi). Ctrl+N yeni pencere, klasöre orta tık o klasörü yeni pencerede açar, Ctrl+W / Esc pencereyi kapatır.
+- Izgara ve liste görünümü, önizleme paneli, sıralama, geri/ileri.
+- **Arama:** herhangi bir yerde yazmaya başla; klasörler dahil süzer, birden çok kelime yazılabilir (hepsi geçmeli, Türkçe harf duyarsız).
+- **Her yerde ara** (dünya düğmesi, Ctrl+Shift+F veya aramada Shift+Enter): tüm bilgisayarda `plocate` diziniyle anında arar. Ev klasörünün dizini arka planda taze tutulur (`~/.cache/fm-ara`); `files.alwaysHidden` yolları ve takılı şifreli kasalar dizine hiç girmez. Sonuca sağ tık → "Bulunduğu klasöre git".
+- **Sürükle-bırak:** sol tuşla klasöre sürükle → taşı (Ctrl basılıysa kopyala); sağ tuşla sürükle → bırakınca "taşı / kopyala" menüsü. Sol paneldeki yerlere ve çöpe de bırakılabilir. **Pencereden dışarı sürüklersen** dosya başka uygulamalara (Discord, tarayıcı, terminal…) bırakılabilir; dışarıdan gelen dosyalar da içeri kopyalanır.
+- **Varsayılan klasör uygulaması yapmak** (tarayıcıdaki "klasörde göster" vb. bunu açsın):
+
+  ```sh
+  mkdir -p ~/.local/share/applications
+  cat > ~/.local/share/applications/felinora-files.desktop <<EOF2
+  [Desktop Entry]
+  Type=Application
+  Name=File Manager
+  Icon=system-file-manager
+  Exec=$HOME/.config/quickshell/felinora-shell/scripts/files-open.sh %U
+  MimeType=inode/directory;
+  NoDisplay=true
+  EOF2
+  xdg-mime default felinora-files.desktop inode/directory
+  ```
 - **Birlikte aç:** dosyayı açabilen uygulamalar, `files.pinnedApps` ile hep görünen uygulamalar ve bir komut kutusu (ör. `subl`, `nvim` yazıp Enter; terminal programları kitty'de açılır). "Her zaman bununla aç" varsayılanı değiştirir.
 - **Gizle** (sağ tık veya Ctrl+Shift+H): adı klasördeki `.hidden` dosyasına yazılır (Dolphin de okur); Ctrl+H ile görünür.
 - **`files.alwaysHidden`:** buraya yazdığın yollar listede hiç görünmez, Ctrl+H ile bile; ama yol çubuğuna (Ctrl+L) yazarak içine girebilirsin. Örnek: `"alwaysHidden": ["~/.config/gizli-klasor"]`
@@ -195,7 +215,7 @@ qs -c felinora-shell ipc call felinora session          # çıkış menüsü
 qs -c felinora-shell ipc call felinora network          # internet paneli
 qs -c felinora-shell ipc call felinora theme obsidyen   # tema değiştir
 qs -c felinora-shell ipc call felinora terminal         # kitty/fastfetch/cava/Qt temasını yeniden yaz
-qs -c felinora-shell ipc call felinora files ""         # dosya yöneticisi
+qs -c felinora-shell ipc call felinora files ""         # dosya yöneticisi (yeni pencere)
 qs -c felinora-shell ipc call lock lock                 # kilitle
 ```
 

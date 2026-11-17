@@ -30,8 +30,9 @@ ShellRoot {
         function launcher(): void { Ui.toggleLauncher() }
         function network(): void { Ui.netOpen = !Ui.netOpen }
         function terminal(): void { TerminalTheme.apply() }
-        // boş yol: dosya yöneticisini aç/kapat; yol verilirse orada açar
-        function files(path: string): void { if (Ui.filesOpen && !path) Ui.filesOpen = false; else Ui.openFiles(path) }
+        // her çağrı yeni bir dosya yöneticisi penceresi açar (boş yol: ev klasörü); kapatmak: Ctrl+W / Esc
+        function files(path: string): void { Ui.openFiles(path) }
+        function filesCloseAll(): void { Ui.closeAllFiles() }
         function theme(id: string): void { Prefs.theme = id }
         function state(): string { return JSON.stringify({ dashboard: Ui.dashboardOpen, session: Ui.sessionOpen, net: Ui.netOpen, picker: Ui.pickerOpen }) }
         function profile(): void { if (Ui.pickerOpen) Ui.pickerOpen = false; else Ui.openPicker("profile") }

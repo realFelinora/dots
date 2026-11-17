@@ -13,26 +13,28 @@ import "../components"
 
 // ฅ^•ﻌ•^ฅ  File Manager — temalı dosya yöneticisi (normal pencere; tema değişince renkleri yumuşakça geçer)
 // aç: qs -c felinora-shell ipc call felinora files [yol]   (README → "Dosya yöneticisi")
-LazyLoader {
-    id: loader
-    active: Ui.filesOpen
+// Her açılış ayrı bir pencere (Dolphin gibi): Ui.filesWins'teki her kimlik için bir pencere.
+Variants {
+    model: Ui.filesWins
 
     FloatingWindow {
         id: win
+        required property var modelData
+        readonly property int winId: modelData
         title: "File Manager — " + win.dirName
         implicitWidth: 1180
         implicitHeight: 720
         minimumSize: Qt.size(760, 460)
         color: Theme.bg
         visible: true
-        onVisibleChanged: if (!visible) Ui.filesOpen = false
+        onVisibleChanged: if (!visible) Ui.closeFiles(win.winId)
 
         // ================= durum =================
         readonly property string home: Quickshell.env("HOME")
         readonly property string trashDir: home + "/.local/share/Trash/files"
         readonly property string ops: Quickshell.shellPath("scripts/fileops.sh")
-        property string dir: Ui.filesStart || home
-        Connections { target: Ui; function onFilesStartChanged() { if (Ui.filesStart) win.go(Ui.filesStart) } }
+        property string dir: home
+        function newWindow(p) { Ui.openFiles(p || dir) }
         readonly property string dirName: dir === "/" ? "/" : dir === home ? "Ev" : dir === trashDir ? "Çöp" : dir.split("/").pop()
         readonly property bool inTrash: dir === trashDir
         property var backStack: []
@@ -47,6 +49,47 @@ LazyLoader {
         property int sortMode: 0          // 0 ad, 1 tarih, 2 boyut, 3 tür
         property bool sortDesc: false
         property string query: ""
+        // arama: klasörler dahil her şeyi süzer; kelimeler boşlukla ayrılır, hepsi geçmeli (Türkçe büyük/küçük harf duyarsız)
+        function fold(t) { return String(t).replace(/[İIı]/g, "i").toLowerCase() }
+        readonly property var qWords: fold(query).split(/\s+/).filter(w => w)
+        onQWordsChanged: fm.invalidate()     // query değil qWords: bağlama güncellendikten sonra süz
+        onQueryChanged: if (everywhere) gTimer.restart()
+        // her yerde ara (dünya düğmesi / Ctrl+Shift+F): bilgisayardaki tüm dosyalar, plocate dizininden anında
+        property bool everywhere: false
+        readonly property bool globalOn: everywhere && query.trim().length >= 2
+        property bool gBusy: false
+        property string gDoneFor: ""
+        onEverywhereChanged: if (everywhere) gTimer.restart()
+        readonly property string searchScript: Quickshell.shellPath("scripts/fmsearch.sh")
+        readonly property string hideList: Object.keys(alwaysHidden).join(":")
+        function indexHome() { Quickshell.execDetached([searchScript, "index", hideList]) }
+        function runGlobal() {
+            if (!globalOn) { gBusy = false; return }
+            gBusy = true
+            gq.running = false
+            gq.forQ = query.trim()
+            gq.command = [searchScript, "search", "400", showHidden ? "1" : "0", hideList].concat(gq.forQ.split(/\s+/))
+            gq.running = true
+        }
+        function gotGlobal(q, text) {
+            if (q !== query.trim()) return              // eski arama, at
+            const w = qWords, out = []
+            text.split("\n").forEach(l => {
+                const a = l.indexOf("\t"), b = l.indexOf("\t", a + 1), c = l.indexOf("\t", b + 1)
+                if (c < 0) return
+                const p = l.slice(c + 1), n = p.split("/").pop() || p
+                const f = fold(n)
+                // en iyi eşleşme üstte: tam ad, sonra baştan eşleşen, sonra kısa yol
+                const rank = (f === w.join(" ") ? 0 : f.startsWith(w[0] || "") ? 1 : 2) * 1000 + p.split("/").length
+                out.push({ fileName: n, filePath: p, fileIsDir: l.slice(0, a) === "directory", fileSize: +l.slice(a + 1, b) || 0,
+                           fileModified: (+l.slice(b + 1, c) || 0) * 1000, rank: rank })
+            })
+            out.sort((x, y) => x.rank - y.rank || (y.fileIsDir - x.fileIsDir) || x.fileName.localeCompare(y.fileName))
+            gres.clear()
+            out.forEach(o => gres.append(o))
+            gBusy = false; gDoneFor = q
+            curIdx = -1
+        }
         property string renaming: ""
         property var clip: ({ mode: "", paths: [] })
         property int token: 0             // klasör değişince giriş animasyonu için
@@ -56,7 +99,7 @@ LazyLoader {
         readonly property var alwaysHidden: { const m = {}; Config.filesHidden.forEach(p => m[p.replace(/\/+$/, "")] = true); return m }
         property var hiddenNames: ({})    // bu klasörün .hidden dosyasındaki adlar (Dolphin da aynısını kullanır)
         onHiddenNamesChanged: fm.invalidate()
-        onShowHiddenChanged: fm.invalidate()
+        onShowHiddenChanged: { fm.invalidate(); if (globalOn) gTimer.restart() }
         function loadHidden() { hidRead.running = false; hidRead.running = true }
         function isHiddenName(n) { return n.startsWith(".") || hiddenNames[n] === true }
         function hideSel(on) {
@@ -146,8 +189,23 @@ LazyLoader {
         property var sideItems: []
         function dragBegin(paths, btn) { dragPaths = paths; dragBtn = btn; dropTarget = ""; dragging = true; ctx.shown = false }
         function dragMove(x, y) {
+            // pencereden dışarı çıkınca sistemin sürükle-bırakına geç → başka uygulamaya bırakılabilir
+            if (x < 0 || y < 0 || x >= keys.width || y >= keys.height) { dragOut(); return }
             dragPos = Qt.point(x, y)
             dropTarget = targetAt(x, y)
+        }
+        // ---- başka uygulamalara sürükle (Discord, tarayıcı, Telegram, terminal…) ----
+        property bool extIn: false        // dışarıdan bu pencereye dosya sürükleniyor
+        function toUri(p) { return "file://" + encodeURI(p).replace(/#/g, "%23").replace(/\?/g, "%3F") }
+        function dragOut() {
+            if (!dragging || extDrag.Drag.active) return
+            const paths = dragPaths
+            dragging = false; dropTarget = ""
+            if (!paths.length) return
+            const one = paths.length === 1 ? paths[0].split("/").pop() : ""
+            extDrag.Drag.imageSource = one && isImg(one) ? "file://" + paths[0] : iconFor(one || "x", false)
+            extDrag.Drag.mimeData = { "text/uri-list": paths.map(toUri).join("\r\n") + "\r\n" }
+            extDrag.Drag.active = true
         }
         function targetAt(x, y) {
             const ok = t => t && t !== win.dir && dragPaths.indexOf(t) < 0 && !dragPaths.some(p => t.startsWith(p + "/"))
@@ -161,6 +219,13 @@ LazyLoader {
             if (q.x < 0 || q.y < 0 || q.x >= v.width || q.y >= v.height) return ""
             const c = v.itemAt(q.x + v.contentX, q.y + v.contentY)
             return c && c.fileIsDir && ok(c.filePath) ? c.filePath : ""
+        }
+        // dışarıdan gelen dosyalar için hedef klasör (kendi dosyalarına izin kontrolü yok)
+        function extTarget(x, y) {
+            const saved = dragPaths; dragPaths = []
+            const t = targetAt(x, y)
+            dragPaths = saved
+            return t
         }
         function dragEnd(mods) {
             if (!dragging) return
@@ -240,6 +305,7 @@ LazyLoader {
         }
         function when(d) {
             if (!d) return ""
+            if (typeof d === "number") d = new Date(d)
             const now = new Date(), diff = (now - d) / 1000
             if (diff < 60) return "az önce"
             if (diff < 3600) return Math.floor(diff / 60) + " dk önce"
@@ -292,18 +358,29 @@ LazyLoader {
             showDirsFirst: true
             showDotAndDotDot: false
             caseSensitive: false
-            nameFilters: win.query ? ["*" + win.query + "*"] : []
             sortField: [FolderListModel.Name, FolderListModel.Time, FolderListModel.Size, FolderListModel.Type][win.sortMode]
             sortReversed: win.sortMode === 1 || win.sortMode === 2 ? !win.sortDesc : win.sortDesc
         }
         // gizlenen dosyaları süzen katman; görünümler ve fm.get() bunu kullanır
         SortFilterProxyModel {
             id: fm
-            model: src
             property int count: 0
-            readonly property int status: src.status
-            function get(i, role) { return src.get(mapToSource(index(i, 0)).row, role) }
-            function indexOf(url) { const r = src.indexOf(url); return r < 0 ? -1 : mapFromSource(src.index(r, 0)).row }
+            model: win.globalOn ? gres : src
+            readonly property int status: win.globalOn ? FolderListModel.Ready : src.status
+            function get(i, role) {
+                const r = mapToSource(index(i, 0)).row
+                if (!win.globalOn) return src.get(r, role)
+                const o = gres.get(r); if (!o) return undefined
+                return role === "fileModified" ? new Date(o.fileModified) : o[role]
+            }
+            function indexOf(url) {
+                if (win.globalOn) {
+                    const p = decodeURIComponent(String(url).replace(/^file:\/\//, ""))
+                    for (let k = 0; k < gres.count; k++) if (gres.get(k).filePath === p) return mapFromSource(gres.index(k, 0)).row
+                    return -1
+                }
+                const r = src.indexOf(url); return r < 0 ? -1 : mapFromSource(src.index(r, 0)).row
+            }
             function recount() { count = rowCount(); if (win.curIdx >= count) win.curIdx = count - 1 }
             onRowsInserted: recount()
             onRowsRemoved: recount()
@@ -311,11 +388,22 @@ LazyLoader {
             onLayoutChanged: recount()
             filters: FunctionFilter {
                 function filter(fileName: string): bool {
+                    if (win.qWords.length) { const f = win.fold(fileName); if (!win.qWords.every(w => f.indexOf(w) >= 0)) return false }
+                    if (win.globalOn) return true
                     if (win.alwaysHidden[win.dir + "/" + fileName]) return false
                     return win.showHidden || !win.hiddenNames[fileName]
                 }
             }
         }
+        ListModel { id: gres }
+        Process {
+            id: gq
+            property string forQ: ""
+            stdout: StdioCollector { onStreamFinished: win.gotGlobal(gq.forQ, this.text) }
+        }
+        Timer { id: gTimer; interval: 80; onTriggered: win.runGlobal() }
+        // ev dizinini taze tut (pencere açıkken 10 dakikada bir; betik 5 dk'dan yeniyse hiçbir şey yapmaz)
+        Timer { interval: 600000; running: true; repeat: true; onTriggered: win.indexHome() }
         Process {
             id: hidRead
             command: ["sh", "-c", 'cat -- "$1/.hidden" 2>/dev/null; true', "sh", win.dir]
@@ -336,6 +424,7 @@ LazyLoader {
                 stderr: StdioCollector { id: err }
                 onExited: code => {
                     win.loadHidden()
+                    if (win.globalOn) gTimer.restart()
                     if (code === 0) { if (pr.okMsg) win.toast(pr.okMsg) }
                     else win.toast("olmadı (=；ω；=) " + (err.text.trim().split("\n")[0] || ""))
                     pr.destroy()
@@ -363,7 +452,12 @@ LazyLoader {
                 }
             }
         }
-        Component.onCompleted: { df.running = true; drives.running = true; loadHidden(); keys.forceActiveFocus() }
+        Component.onCompleted: {
+            const st = Ui.filesStartMap[winId]
+            if (st) go(st, false)
+            df.running = true; drives.running = true; loadHidden(); keys.forceActiveFocus()
+            indexHome()
+        }
 
         // bağlı diskler (kenar çubuğu)
         property var driveList: []
@@ -439,9 +533,11 @@ LazyLoader {
                 else if (ctrl && (e.modifiers & Qt.ShiftModifier) && e.key === Qt.Key_H) win.hideSel(!win.selected().every(p => win.hiddenNames[p.replace(/^.*\//, "")] === true))
                 else if (ctrl && e.key === Qt.Key_H) win.showHidden = !win.showHidden
                 else if (ctrl && e.key === Qt.Key_L) crumbs.edit()
+                else if (ctrl && shift && e.key === Qt.Key_F) { win.everywhere = !win.everywhere; searchInput.forceActiveFocus() }
                 else if (ctrl && e.key === Qt.Key_F) searchInput.forceActiveFocus()
                 else if (ctrl && shift && e.key === Qt.Key_N) win.newFolder()
-                else if (ctrl && e.key === Qt.Key_W) Ui.filesOpen = false
+                else if (ctrl && e.key === Qt.Key_W) Ui.closeFiles(win.winId)
+                else if (ctrl && e.key === Qt.Key_N && !shift) win.newWindow()
                 else if (ctrl && e.key === Qt.Key_1) win.grid = true
                 else if (ctrl && e.key === Qt.Key_2) win.grid = false
                 else if (e.key === Qt.Key_F2) win.startRename()
@@ -451,7 +547,7 @@ LazyLoader {
                 else if (alt && e.key === Qt.Key_Left) win.back()
                 else if (alt && e.key === Qt.Key_Right) win.forward()
                 else if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) { if (win.selCount === 1) win.openIdx(win.curIdx) }
-                else if (e.key === Qt.Key_Escape) { if (win.dragging) { win.dragging = false; win.dropTarget = "" } else if (dropMenu.shown) dropMenu.shown = false; else if (owDlg.shown) owDlg.shown = false; else if (confirm.shown) confirm.shown = false; else if (ctx.shown) ctx.shown = false; else if (win.query) win.query = ""; else if (win.selCount) win.clearSel(); else Ui.filesOpen = false }
+                else if (e.key === Qt.Key_Escape) { if (win.dragging) { win.dragging = false; win.dropTarget = "" } else if (dropMenu.shown) dropMenu.shown = false; else if (owDlg.shown) owDlg.shown = false; else if (confirm.shown) confirm.shown = false; else if (ctx.shown) ctx.shown = false; else if (win.query) win.query = ""; else if (win.selCount) win.clearSel(); else Ui.closeFiles(win.winId) }
                 else if (e.key === Qt.Key_Right) move(1)
                 else if (e.key === Qt.Key_Left) move(-1)
                 else if (e.key === Qt.Key_Down) move(cols)
@@ -562,6 +658,7 @@ LazyLoader {
                     Rectangle {
                         id: crumbs
                         Layout.fillWidth: true
+                        Layout.minimumWidth: 140
                         implicitHeight: 38
                         radius: 19
                         color: Theme.surface
@@ -573,9 +670,16 @@ LazyLoader {
 
                         MouseArea { anchors.fill: parent; cursorShape: Qt.IBeamCursor; onClicked: crumbs.edit() }
 
+                        Txt {
+                            visible: win.globalOn && !crumbs.editing
+                            anchors.verticalCenter: parent.verticalCenter
+                            x: 16; width: parent.width - 32; elide: Text.ElideRight
+                            text: "her yerde: \"" + win.query.trim() + "\"  ·  " + (win.gBusy && win.gDoneFor !== win.query.trim() ? "aranıyor…" : fm.count + " sonuç")
+                            size: 13; color: Theme.pink; font.weight: Font.DemiBold
+                        }
                         Flickable {
                             id: crumbFlick
-                            visible: !crumbs.editing
+                            visible: !crumbs.editing && !win.globalOn
                             anchors.fill: parent
                             anchors.leftMargin: 10
                             anchors.rightMargin: 10
@@ -634,7 +738,11 @@ LazyLoader {
 
                     // arama
                     Rectangle {
-                        implicitWidth: searchInput.activeFocus || win.query ? 230 : 150
+                        // dar pencerede yol çubuğunu ezmesin: ikisi de esner, arama en çok 250
+                        Layout.fillWidth: true
+                        Layout.minimumWidth: 130
+                        Layout.maximumWidth: implicitWidth
+                        implicitWidth: searchInput.activeFocus || win.query || win.everywhere ? 250 : 150
                         Behavior on implicitWidth { NumberAnimation { duration: 260; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.curveEmphDecel } }
                         implicitHeight: 38
                         radius: 19
@@ -656,10 +764,13 @@ LazyLoader {
                             Keys.onEscapePressed: { text = ""; keys.forceActiveFocus() }
                             Keys.onReturnPressed: { if (fm.count) { win.clickItem(0, 0); keys.forceActiveFocus() } }
                             Keys.onDownPressed: { if (fm.count) { win.clickItem(0, 0); keys.forceActiveFocus() } }
-                            Txt { visible: !parent.text; text: "ara~"; size: 13; color: Theme.muted; anchors.verticalCenter: parent.verticalCenter }
+                            Keys.onPressed: e => { if ((e.key === Qt.Key_Return || e.key === Qt.Key_Enter) && (e.modifiers & Qt.ShiftModifier)) { win.everywhere = !win.everywhere; e.accepted = true } }
+                            Txt { visible: !parent.text; text: win.everywhere ? "her yerde ara~" : "ara~"; size: 13; color: win.everywhere ? Theme.pink : Theme.muted; anchors.verticalCenter: parent.verticalCenter }
                         }
                         Connections { target: win; function onQueryChanged() { if (searchInput.text !== win.query) searchInput.text = win.query } }
                     }
+                    // her yerde ara (Ctrl+Shift+F) — açıkken arama tüm bilgisayarda yapılır
+                    IconButton { icon: Theme.cp(0xf01e7); active: win.everywhere; onClicked: { win.everywhere = !win.everywhere; searchInput.forceActiveFocus() } }
 
                     Rectangle { width: 1; height: 22; color: Theme.border; Layout.leftMargin: 2; Layout.rightMargin: 2 }
                     IconButton { icon: win.showHidden ? Theme.cp(0xf0208) : Theme.cp(0xf0209); active: win.showHidden; onClicked: win.showHidden = !win.showHidden }
@@ -776,13 +887,13 @@ LazyLoader {
                         Column {
                             anchors.centerIn: parent
                             spacing: 10
-                            visible: fm.status === FolderListModel.Ready && fm.count === 0
+                            visible: fm.status === FolderListModel.Ready && fm.count === 0 && !(win.globalOn && win.gDoneFor !== win.query.trim())
                             opacity: visible ? 1 : 0
                             Behavior on opacity { NumberAnimation { duration: 240 } }
                             Mascot { kind: "sleep"; width: 120; height: 100; anchors.horizontalCenter: parent.horizontalCenter }
                             Txt {
                                 anchors.horizontalCenter: parent.horizontalCenter
-                                text: win.query ? "\"" + win.query + "\" bulunamadı (=･ω･=)?" : win.inTrash ? "çöp bomboş, tertemiz~" : "burası bomboş (=･ω･=)"
+                                text: win.globalOn ? "hiçbir yerde \"" + win.query.trim() + "\" yok (=･ω･=)?" : win.query ? "\"" + win.query + "\" bulunamadı (=･ω･=)?" : win.inTrash ? "çöp bomboş, tertemiz~" : "burası bomboş (=･ω･=)"
                                 size: 14; color: Theme.subtext
                             }
                         }
@@ -867,7 +978,7 @@ LazyLoader {
                                     { k: "tür", v: win.kind(pv.oneName, pv.oneDir) },
                                     { k: "boyut", v: pv.oneDir ? "—" : win.human(fm.get(pv.oneIdx, "fileSize")) },
                                     { k: "değişti", v: Qt.formatDateTime(fm.get(pv.oneIdx, "fileModified"), "d MMM yyyy  hh:mm") },
-                                    { k: "konum", v: win.dir.replace(win.home, "~") }
+                                    { k: "konum", v: (pv.one.replace(/\/[^\/]*$/, "") || "/").replace(win.home, "~") }
                                 ] : [
                                     { k: "konum", v: win.dir.replace(win.home, "~") },
                                     { k: "disk", v: win.freeText || "—" }
@@ -910,6 +1021,32 @@ LazyLoader {
                     Txt { visible: win.inTrash && fm.count > 0; text: "çöpü boşalt"; size: 12; color: Theme.red
                           MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: confirm.ask("Çöp tamamen boşaltılsın mı?", () => win.run(["emptytrash"], "çöp boşaltıldı")) } }
                 }
+            }
+        }
+
+        // ================= dış sürükle-bırak =================
+        Item {
+            id: extDrag
+            width: 64; height: 64
+            Drag.dragType: Drag.Automatic
+            Drag.supportedActions: Qt.CopyAction
+            Drag.proposedAction: Qt.CopyAction
+            Drag.imageSourceSize: Qt.size(64, 64)
+            Drag.onDragFinished: dropAction => { extDrag.Drag.active = false; if (dropAction !== Qt.IgnoreAction) win.toast("bırakıldı~ ฅ^•ω•^ฅ") }
+        }
+        DropArea {
+            anchors.fill: parent
+            keys: ["text/uri-list"]
+            onEntered: d => { if (d.source === extDrag) { d.accepted = false; return } win.extIn = true; d.accept(Qt.CopyAction) }
+            onPositionChanged: d => { if (win.extIn) win.dropTarget = win.extTarget(d.x, d.y) }
+            onExited: { win.extIn = false; win.dropTarget = "" }
+            onDropped: d => {
+                const t = win.dropTarget || (win.globalOn ? "" : win.dir)
+                win.extIn = false; win.dropTarget = ""
+                const paths = d.urls.map(u => String(u)).filter(u => u.startsWith("file://")).map(u => decodeURIComponent(u.slice(7)))
+                if (!t || t === win.trashDir || !paths.length) return   // dışarıdan çöpe bırakma: başkasının dosyasını silmesin
+                d.accept(Qt.CopyAction)
+                win.dropDo(t, paths, "copy")
             }
         }
 
@@ -1033,6 +1170,8 @@ LazyLoader {
                 x: 6; y: 6
                 width: parent.width - 12
                 CtxItem { text: "Aç"; glyph: Theme.folderOpen; shownIf: ctx.onItem && win.selCount === 1; onRun: win.openIdx(win.curIdx) }
+                CtxItem { text: "Yeni pencerede aç"; glyph: Theme.cp(0xf03cc); key: "orta tık"; shownIf: ctx.onItem && win.selCount === 1 && pv.oneDir; onRun: win.newWindow(pv.one) }
+                CtxItem { text: "Bulunduğu klasöre git"; glyph: Theme.folderOpen; shownIf: ctx.onItem && win.selCount === 1 && win.globalOn; onRun: { const p = pv.one; win.go(p.replace(/\/[^\/]*$/, "") || "/"); Qt.callLater(() => win.setSel([p])) } }
                 CtxItem { text: "Birlikte aç…"; glyph: Theme.apps; shownIf: ctx.onItem && win.selCount === 1 && !pv.oneDir; onRun: win.openWith() }
                 CtxItem { text: "Kopyala"; glyph: Theme.copy; key: "Ctrl+C"; shownIf: ctx.onItem; onRun: win.copySel(false) }
                 CtxItem { text: "Kes"; glyph: Theme.cp(0xf0190); key: "Ctrl+X"; shownIf: ctx.onItem; onRun: win.copySel(true) }
@@ -1045,6 +1184,7 @@ LazyLoader {
                 CtxItem { text: "Yeni klasör"; glyph: Theme.cp(0xf0257); key: "Ctrl+⇧+N"; shownIf: !ctx.onItem && !win.inTrash; onRun: win.newFolder() }
                 CtxItem { text: "Yeni metin dosyası"; glyph: Theme.cp(0xf0752); shownIf: !ctx.onItem && !win.inTrash; onRun: win.newFile() }
                 CtxItem { text: "Terminalde aç"; glyph: Theme.terminal; key: "F4"; onRun: win.terminalHere() }
+                CtxItem { text: "Yeni pencere"; glyph: Theme.cp(0xf03cc); key: "Ctrl+N"; shownIf: !ctx.onItem; onRun: win.newWindow() }
                 CtxItem { text: win.showHidden ? "Gizlileri sakla" : "Gizlileri göster"; glyph: Theme.cp(0xf0208); key: "Ctrl+H"; shownIf: !ctx.onItem; onRun: win.showHidden = !win.showHidden }
                 CtxSep { visible: ctx.onItem }
                 CtxItem { text: win.inTrash ? "Kalıcı sil" : "Çöpe at"; glyph: Theme.cp(0xf0a7a); key: "Del"; danger: true; shownIf: ctx.onItem; onRun: win.trashSel() }
@@ -1377,8 +1517,9 @@ LazyLoader {
             readonly property bool img: !fileIsDir && win.isImg(fileName)
             readonly property bool cut: win.clip.mode === "move" && win.clip.paths.indexOf(filePath) >= 0
             readonly property bool hidden: win.isHiddenName(fileName)
-            readonly property bool dropHot: win.dragging && win.dropTarget === filePath
+            readonly property bool dropHot: (win.dragging || win.extIn) && win.dropTarget === filePath
             readonly property bool dragged: win.dragging && win.dragPaths.indexOf(filePath) >= 0
+            readonly property string parentDir: (filePath.replace(/\/[^\/]*$/, "") || "/").replace(win.home, "~")
 
             // klasöre girince sırayla beliren hücreler
             property int born: win.token
@@ -1460,8 +1601,15 @@ LazyLoader {
                         color: fc.picked ? Theme.text : Theme.subtext
                         horizontalAlignment: Text.AlignHCenter
                         wrapMode: Text.WrapAnywhere
-                        maximumLineCount: 2
+                        maximumLineCount: win.globalOn ? 1 : 2
                         elide: Text.ElideMiddle
+                    }
+                    Txt {
+                        visible: win.globalOn && win.renaming !== fc.filePath
+                        anchors.bottom: parent.bottom; width: parent.width
+                        text: fc.parentDir.split("/").pop() || "/"
+                        size: 10; color: Theme.muted
+                        horizontalAlignment: Text.AlignHCenter; elide: Text.ElideMiddle
                     }
                 }
             }
@@ -1486,7 +1634,13 @@ LazyLoader {
                         layer.effect: MultiEffect { colorization: 1.0; colorizationColor: Theme.pink; brightness: 0.06; saturation: 0.15 }
                     }
                 }
-                Txt { visible: win.renaming !== fc.filePath; text: fc.fileName; size: 13; color: fc.picked ? Theme.text : Theme.subtext; Layout.fillWidth: true; elide: Text.ElideMiddle }
+                ColumnLayout {
+                    visible: win.renaming !== fc.filePath
+                    Layout.fillWidth: true
+                    spacing: 0
+                    Txt { text: fc.fileName; size: 13; color: fc.picked ? Theme.text : Theme.subtext; Layout.fillWidth: true; elide: Text.ElideMiddle }
+                    Txt { visible: win.globalOn; text: fc.parentDir; size: 10; color: Theme.muted; Layout.fillWidth: true; elide: Text.ElideMiddle }
+                }
                 Item { visible: win.renaming === fc.filePath; Layout.fillWidth: true }
                 Txt { text: win.when(fc.fileModified); size: 12; color: Theme.muted; Layout.preferredWidth: 130 }
                 Txt { text: fc.fileIsDir ? "—" : win.human(fc.fileSize); size: 12; color: Theme.muted; Layout.preferredWidth: 80; horizontalAlignment: Text.AlignRight }
@@ -1525,14 +1679,14 @@ LazyLoader {
                 id: cellMa
                 anchors.fill: parent
                 hoverEnabled: true
-                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
                 cursorShape: win.dragging ? Qt.DragMoveCursor : Qt.PointingHandCursor
                 preventStealing: true          // sürüklerken liste kaymasın, dosya sürüklensin
                 property point pressAt
                 property bool moved: false
-                onPressed: m => { pressAt = Qt.point(m.x, m.y); moved = false }
+                onPressed: m => { pressAt = Qt.point(m.x, m.y); moved = false; if (m.button === Qt.MiddleButton && fc.fileIsDir) win.newWindow(fc.filePath) }
                 onPositionChanged: m => {
-                    if (!pressed || win.renaming === fc.filePath) return
+                    if (!pressed || win.renaming === fc.filePath || (pressedButtons & Qt.MiddleButton)) return
                     if (!moved && Math.hypot(m.x - pressAt.x, m.y - pressAt.y) > 10) {
                         moved = true
                         if (!fc.picked) win.clickItem(fc.index, 0)
@@ -1543,7 +1697,7 @@ LazyLoader {
                 onReleased: m => { if (moved) win.dragEnd(m.modifiers) }
                 onCanceled: { if (moved) { win.dragging = false; win.dropTarget = "" } }
                 onClicked: m => {
-                    if (moved) return
+                    if (moved || m.button === Qt.MiddleButton) return
                     keys.forceActiveFocus()
                     if (m.button === Qt.RightButton) {
                         if (!fc.picked) win.clickItem(fc.index, 0)
