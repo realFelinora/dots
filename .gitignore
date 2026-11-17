@@ -15,4 +15,4 @@ assets/*.svg
 .idea/
 
 # README ekran görüntüleri repoya girsin
-!screenshots/*.png
+!screenshots/*.jpg

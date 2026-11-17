@@ -10,36 +10,9 @@
 
 ---
 
-![Felinora-shell masaüstü](screenshots/01-masaustu.jpg)
+![Felinora-shell masaüstü](../screenshots/01-masaustu.jpg)
 
-<table>
-  <tr>
-    <td><img src="screenshots/02-dashboard.jpg" alt="Dashboard"><br><sub><b>Dashboard</b> — hava, profil, saat, takvim, medya</sub></td>
-    <td><img src="screenshots/03-media.jpg" alt="Media"><br><sub><b>Media</b> — senkron şarkı sözleri</sub></td>
-  </tr>
-  <tr>
-    <td><img src="screenshots/12-sarki-temasi.jpg" alt="Şarkı teması"><br><sub><b>Şarkı teması</b> — renkler çalan şarkının albüm kapağından gelir</sub></td>
-    <td><img src="screenshots/05-temalar.jpg" alt="Temalar"><br><sub><b>Temalar</b> — 7 koyu tema + şarkı teması, tek tık</sub></td>
-  </tr>
-  <tr>
-    <td><img src="screenshots/10-dosya-yoneticisi.jpg" alt="Dosya yöneticisi"><br><sub><b>Dosya yöneticisi</b> — önizleme, sürükle-bırak, şifreli kasalar</sub></td>
-    <td><img src="screenshots/11-birlikte-ac.jpg" alt="Birlikte aç"><br><sub><b>Birlikte aç</b> — uygulama seç ya da komut yaz</sub></td>
-  </tr>
-  <tr>
-    <td><img src="screenshots/06-baslatici.jpg" alt="Program başlatıcı"><br><sub><b>Program başlatıcı</b> — arama, hesap makinesi, komut, web</sub></td>
-    <td><img src="screenshots/04-weather.jpg" alt="Weather"><br><sub><b>Weather</b> — saatlik ve 7 günlük tahmin</sub></td>
-  </tr>
-  <tr>
-    <td><img src="screenshots/09-kilit-ekrani.jpg" alt="Kilit ekranı"><br><sub><b>Kilit ekranı</b> — şifre yazarken patiler</sub></td>
-    <td><img src="screenshots/07-cikis-menusu.jpg" alt="Çıkış menüsü"><br><sub><b>Çıkış menüsü</b></sub></td>
-  </tr>
-</table>
-
-### 🎨 Temalar — terminal, cava ve kod editörü de birlikte değişir
-
-![8 tema](screenshots/08-temalar-kolaj.jpg)
-
-<sub>Görüntülerdeki duvar kağıdı, profil resmi, albüm kapağı ve demo şarkı bu README için özel hazırlandı.</sub>
+Bütün ekran görüntüleri: **[ana README](../README.md)**
 
 ## ✨ Özellikler
 
@@ -83,8 +56,8 @@
 ## 🚀 Kurulum
 
 ```sh
-git clone https://github.com/realFelinora/felinora-shell.git
-cd felinora-shell
+git clone https://github.com/realFelinora/dots.git
+cd dots/quickshell
 ./install.sh
 ```
 
@@ -227,7 +200,7 @@ Temalar: `pembe` · `obsidyen` · `gece` · `kan` · `buz` · `sakura` · `nane`
 
 ## 🐾 SDDM giriş teması
 
-Shell ile uyumlu giriş ekranı ayrı bir depoda: **[realFelinora/felinora-sddm](https://github.com/realFelinora/felinora-sddm)**
+Shell ile uyumlu giriş ekranı aynı depoda: **[`sddm/`](../sddm)**. Tam bir Hyprland ayarı örneği için: **[`hypr/hyprland.lua`](../hypr/hyprland.lua)**
 
 ## 🙏 Teşekkürler
 
@@ -241,4 +214,4 @@ Shell ile uyumlu giriş ekranı ayrı bir depoda: **[realFelinora/felinora-sddm]
 
 Felinora-shell © 2026 **realFelinora**
 
-Bu program özgür yazılımdır: [GNU General Public License v3.0 veya sonrası](LICENSE) koşulları altında dağıtabilir ve/veya değiştirebilirsiniz. Değiştirilmiş sürümler de aynı lisansla, kaynak koduyla birlikte ve orijinal telif bildirimi korunarak dağıtılmalıdır.
+Bu program özgür yazılımdır: [GNU General Public License v3.0 veya sonrası](../LICENSE) koşulları altında dağıtabilir ve/veya değiştirebilirsiniz. Değiştirilmiş sürümler de aynı lisansla, kaynak koduyla birlikte ve orijinal telif bildirimi korunarak dağıtılmalıdır.

@@ -12,8 +12,8 @@
 
 <table>
   <tr>
-    <td><img src="screenshots/karsilama.jpg" alt="Karşılama ekranı"><br><sub><b>Karşılama</b> — tıkla ya da bir tuşa bas</sub></td>
-    <td><img src="screenshots/giris.jpg" alt="Giriş ekranı"><br><sub><b>Giriş</b> — şifre yazarken şekilli patiler</sub></td>
+    <td><img src="../screenshots/sddm-karsilama.jpg" alt="Karşılama ekranı"><br><sub><b>Karşılama</b> — tıkla ya da bir tuşa bas</sub></td>
+    <td><img src="../screenshots/sddm-giris.jpg" alt="Giriş ekranı"><br><sub><b>Giriş</b> — şifre yazarken şekilli patiler</sub></td>
   </tr>
 </table>
 
@@ -21,7 +21,7 @@
 
 Önce bir karşılama ekranı çıkar. Tıklayınca ya da bir tuşa basınca kilit ekranı tarzındaki giriş gelir; basılan tuş şifre kutusuna yazılmaz. Şifre yazarken her karakter zıplayan şekilli bir pati olur. Giriş ekranında `Esc`'ye basınca veya bir süre hiçbir şey yapılmayınca karşılama ekranına geri döner.
 
-[Felinora-shell](https://github.com/realFelinora/felinora-shell) ile aynı 7 renk temasını kullanır, ama tek başına da çalışır.
+[Felinora-shell](../quickshell) ile aynı 7 renk temasını kullanır, ama tek başına da çalışır.
 
 ## 📦 Gereksinimler
 
@@ -31,8 +31,8 @@
 ## 🚀 Kurulum
 
 ```sh
-git clone https://github.com/realFelinora/felinora-sddm
-cd felinora-sddm
+git clone https://github.com/realFelinora/dots.git
+cd dots/sddm
 sudo ./install.sh --palette gece \
     --background ~/Resimler/arkaplan.png \
     --avatar ~/Resimler/profil.png
@@ -56,6 +56,6 @@ Diğer ayarlar (`clock24`, `idleSeconds`) `/usr/share/sddm/themes/felinora/theme
 
 Copyright (C) 2026 realFelinora
 
-Bu program özgür yazılımdır: [GNU General Public License v3.0 veya sonrası](LICENSE) koşulları altında dağıtabilir ve/veya değiştirebilirsiniz.
+Bu program özgür yazılımdır: [GNU General Public License v3.0 veya sonrası](../LICENSE) koşulları altında dağıtabilir ve/veya değiştirebilirsiniz.
 
 Geliştirme sırasında yapay zekâ asistanı **Claude** (Anthropic) yardımıyla yazıldı.
